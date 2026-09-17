@@ -18,9 +18,8 @@ namespace gspro_r10
     public int ReconnectInterval { get; }
     public LaunchMonitorDevice? LaunchMonitor { get; private set; }
     public BluetoothDevice? Device { get; private set; }
-    public event EventHandler<Metrics>? ShotReceived;
-    public event EventHandler<int>? BatteryUpdated;
-    public event EventHandler<State.StateType>? StateChanged;
+    public event Action<Metrics>? ShotReceived;
+    public event Action<int>? BatteryUpdated;
 
     public BluetoothConnection(ConnectionManager connectionManager, IConfigurationSection configuration)
     {
@@ -79,16 +78,15 @@ namespace gspro_r10
       lm.BatteryLifeUpdated += (o, e) =>
       {
         BluetoothLogger.Info($"Battery Life Updated: {e.Battery}%");
-        BatteryUpdated?.Invoke(this, e.Battery);
+        BatteryUpdated?.Invoke(e.Battery);
       };
       lm.Error += (o, e) => BluetoothLogger.Error($"{e.Severity}: {e.Message}");
-      lm.ReadinessChanged += (o, e) => StateChanged?.Invoke(this, e.Ready ? State.StateType.Waiting : lm.CurrentState);
 
       lm.ShotMetrics += (o, e) =>
       {
         if (e.Metrics == null) return;
         LogMetrics(e.Metrics);
-        ShotReceived?.Invoke(this, e.Metrics);
+        ShotReceived?.Invoke(e.Metrics);
         ConnectionManager.SendShot(
           BallDataFromLaunchMonitorMetrics(e.Metrics.BallMetrics),
           ClubDataFromLaunchMonitorMetrics(e.Metrics.ClubMetrics)
@@ -129,29 +127,13 @@ namespace gspro_r10
     public static BallData? BallDataFromLaunchMonitorMetrics(BallMetrics? ballMetrics)
     {
       if (ballMetrics == null) return null;
-      return new BallData()
-      {
-        HLA = ballMetrics.LaunchDirection,
-        VLA = ballMetrics.LaunchAngle,
-        Speed = ballMetrics.BallSpeed * METERS_PER_S_TO_MILES_PER_HOUR,
-        SpinAxis = ballMetrics.SpinAxis * -1,
-        TotalSpin = ballMetrics.TotalSpin,
-        SideSpin = ballMetrics.TotalSpin * Math.Sin(-1 * ballMetrics.SpinAxis * Math.PI / 180),
-        BackSpin = ballMetrics.TotalSpin * Math.Cos(-1 * ballMetrics.SpinAxis * Math.PI / 180)
-      };
+      return new BallData { HLA = ballMetrics.LaunchDirection, VLA = ballMetrics.LaunchAngle, Speed = ballMetrics.BallSpeed * METERS_PER_S_TO_MILES_PER_HOUR, SpinAxis = ballMetrics.SpinAxis * -1, TotalSpin = ballMetrics.TotalSpin, SideSpin = ballMetrics.TotalSpin * Math.Sin(-1 * ballMetrics.SpinAxis * Math.PI / 180), BackSpin = ballMetrics.TotalSpin * Math.Cos(-1 * ballMetrics.SpinAxis * Math.PI / 180) };
     }
 
     public static ClubData? ClubDataFromLaunchMonitorMetrics(ClubMetrics? clubMetrics)
     {
       if (clubMetrics == null) return null;
-      return new ClubData()
-      {
-        Speed = clubMetrics.ClubHeadSpeed * METERS_PER_S_TO_MILES_PER_HOUR,
-        SpeedAtImpact = clubMetrics.ClubHeadSpeed * METERS_PER_S_TO_MILES_PER_HOUR,
-        AngleOfAttack = clubMetrics.AttackAngle,
-        FaceToTarget = clubMetrics.ClubAngleFace,
-        Path = clubMetrics.ClubAnglePath
-      };
+      return new ClubData { Speed = clubMetrics.ClubHeadSpeed * METERS_PER_S_TO_MILES_PER_HOUR, SpeedAtImpact = clubMetrics.ClubHeadSpeed * METERS_PER_S_TO_MILES_PER_HOUR, AngleOfAttack = clubMetrics.AttackAngle, FaceToTarget = clubMetrics.ClubAngleFace, Path = clubMetrics.ClubAnglePath };
     }
 
     public void LogMetrics(Metrics? metrics)
