@@ -11,7 +11,7 @@ namespace gspro_r10
   class R10Session : TcpSession
   {
     public bool ReceivedPong { get; private set; }
-    public Timer? PingTimer { get; private set; }
+    public System.Threading.Timer? PingTimer { get; private set; }
     public BallData? BallData { get; private set; }
     public ClubData? ClubData { get; private set; }
 
@@ -25,7 +25,7 @@ namespace gspro_r10
     protected override void OnConnected()
     {
       R10Logger.LogR10Info($"TCP session with Id {Id} connected!");
-      PingTimer = new Timer(SendPing, null, 0, 10000);
+      PingTimer = new System.Threading.Timer(SendPing, null, 0, 10000);
     }
 
     private void SendPing(object? state)
@@ -35,10 +35,6 @@ namespace gspro_r10
         ReceivedPong = false;
         string responseJson = JsonSerializer.Serialize(new PingMessage());
         SendAsync(responseJson);
-      }
-      else
-      {
-        //Console.WriteLine("Pong not receivied?");
       }
     }
 
@@ -200,7 +196,6 @@ namespace gspro_r10
       }
     }
 
-
     protected override TcpSession CreateSession() { return new R10Session(this, ConnectionManager); }
 
     protected override void OnError(SocketError error)
@@ -220,7 +215,6 @@ namespace gspro_r10
       }
       throw new Exception("No network adapters with an IPv4 address in the system!");
     }
-
   }
 
   public static class R10Logger
