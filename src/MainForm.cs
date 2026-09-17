@@ -29,7 +29,8 @@ namespace gspro_r10
 
       BuildUi();
       manager.ShotReceived += OnShotReceived;
-      manager.BluetoothConnection?.BatteryUpdated += OnBatteryUpdated;
+      var bt = manager.BluetoothConnection;
+      if (bt != null) bt.BatteryUpdated += OnBatteryUpdated;
       FormClosed += (_, _) => manager.Dispose();
       var timer = new System.Windows.Forms.Timer { Interval = 500 };
       timer.Tick += (_, _) => UpdateConnectionState();
@@ -127,15 +128,15 @@ namespace gspro_r10
       }
     }
 
-    private void OnBatteryUpdated(object? sender, int battery)
+    private void OnBatteryUpdated(int battery)
     {
-      if (InvokeRequired) { BeginInvoke(() => OnBatteryUpdated(sender, battery)); return; }
+      if (InvokeRequired) { BeginInvoke(() => OnBatteryUpdated(battery)); return; }
       UpdateConnectionState();
     }
 
-    private void OnShotReceived(object? sender, Metrics metrics)
+    private void OnShotReceived(Metrics metrics)
     {
-      if (InvokeRequired) { BeginInvoke(() => OnShotReceived(sender, metrics)); return; }
+      if (InvokeRequired) { BeginInvoke(() => OnShotReceived(metrics)); return; }
       var ball = metrics.BallMetrics;
       var club = metrics.ClubMetrics;
       double mph = (ball?.BallSpeed ?? 0) * 2.236936;
@@ -148,16 +149,7 @@ namespace gspro_r10
       launchLabel.Text = $"{ball?.LaunchAngle ?? 0:0.0}°";
       spinLabel.Text = $"{spin:0} rpm";
 
-      shots.Rows.Insert(0,
-        shotCount,
-        $"{mph:0.0} mph",
-        $"{carry:0} yd",
-        $"{ball?.LaunchAngle ?? 0:0.0}°",
-        $"{ball?.LaunchDirection ?? 0:0.0}°",
-        $"{spin:0} rpm",
-        $"{(club?.ClubHeadSpeed ?? 0) * 2.236936:0.0} mph",
-        $"{club?.AttackAngle ?? 0:0.0}°");
-
+      shots.Rows.Insert(0, shotCount, $"{mph:0.0} mph", $"{carry:0} yd", $"{ball?.LaunchAngle ?? 0:0.0}°", $"{ball?.LaunchDirection ?? 0:0.0}°", $"{spin:0} rpm", $"{(club?.ClubHeadSpeed ?? 0) * 2.236936:0.0} mph", $"{club?.AttackAngle ?? 0:0.0}°");
       if (shots.Rows.Count > 200) shots.Rows.RemoveAt(shots.Rows.Count - 1);
     }
   }
