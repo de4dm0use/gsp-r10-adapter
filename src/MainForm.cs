@@ -29,13 +29,11 @@ namespace gspro_r10
             StartPosition = FormStartPosition.CenterScreen;
             BackColor = Color.FromArgb(20, 24, 28);
             ForeColor = Color.White;
-
             BuildUi();
             manager.ShotReceived += OnShotReceived;
             var bt = manager.BluetoothConnection;
             if (bt != null) bt.BatteryUpdated += OnBatteryUpdated;
             FormClosed += (_, _) => manager.Dispose();
-
             var timer = new System.Windows.Forms.Timer { Interval = 500 };
             timer.Tick += (_, _) => UpdateConnectionState();
             timer.Start();
@@ -43,14 +41,7 @@ namespace gspro_r10
 
         private void BuildUi()
         {
-            var root = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 1,
-                RowCount = 4,
-                Padding = new Padding(18),
-                BackColor = BackColor
-            };
+            var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4, Padding = new Padding(18), BackColor = BackColor };
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 76));
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 120));
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 105));
@@ -58,13 +49,7 @@ namespace gspro_r10
             Controls.Add(root);
 
             var header = new Panel { Dock = DockStyle.Fill };
-            var title = new Label
-            {
-                Text = "R10 SHOT TRACKER",
-                AutoSize = true,
-                Font = new Font("Segoe UI", 22, FontStyle.Bold),
-                Location = new Point(0, 2)
-            };
+            var title = new Label { Text = "R10 SHOT TRACKER", AutoSize = true, Font = new Font("Segoe UI", 22, FontStyle.Bold), Location = new Point(0, 2) };
             connectionLabel.Text = "● Connecting...";
             connectionLabel.AutoSize = true;
             connectionLabel.Font = new Font("Segoe UI", 11, FontStyle.Bold);
@@ -84,7 +69,6 @@ namespace gspro_r10
             var cards = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 4, RowCount = 1, BackColor = BackColor };
             for (int i = 0; i < 4; i++) cards.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
             root.Controls.Add(cards, 0, 1);
-
             carryLabel.Text = "— yd";
             AddCard(cards, 0, "ESTIMATED CARRY", carryLabel, 27);
             apexLabel.Text = "— yd";
@@ -95,9 +79,7 @@ namespace gspro_r10
             AddCard(cards, 3, "LANDING SPEED", landingSpeedLabel, 22);
 
             var detail = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 1, BackColor = BackColor };
-            detail.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
-            detail.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
-            detail.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.34f));
+            for (int i = 0; i < 3; i++) detail.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
             AddSmallCard(detail, 0, "BALL SPEED", ballSpeedLabel, "— mph");
             AddSmallCard(detail, 1, "LAUNCH ANGLE", launchLabel, "—°");
             AddSmallCard(detail, 2, "BACKSPIN", spinLabel, "— rpm");
@@ -112,19 +94,8 @@ namespace gspro_r10
             shots.ReadOnly = true;
             shots.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
             shots.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
-            shots.ColumnHeadersDefaultCellStyle = new DataGridViewCellStyle
-            {
-                BackColor = Color.FromArgb(42, 48, 54),
-                ForeColor = Color.White,
-                Font = new Font("Segoe UI", 9, FontStyle.Bold)
-            };
-            shots.DefaultCellStyle = new DataGridViewCellStyle
-            {
-                BackColor = Color.FromArgb(27, 32, 37),
-                ForeColor = Color.White,
-                SelectionBackColor = Color.FromArgb(50, 90, 70),
-                SelectionForeColor = Color.White
-            };
+            shots.ColumnHeadersDefaultCellStyle = new DataGridViewCellStyle { BackColor = Color.FromArgb(42, 48, 54), ForeColor = Color.White, Font = new Font("Segoe UI", 9, FontStyle.Bold) };
+            shots.DefaultCellStyle = new DataGridViewCellStyle { BackColor = Color.FromArgb(27, 32, 37), ForeColor = Color.White, SelectionBackColor = Color.FromArgb(50, 90, 70), SelectionForeColor = Color.White };
             shots.Columns.Add("Shot", "#");
             shots.Columns.Add("BallSpeed", "Ball speed");
             shots.Columns.Add("Carry", "Carry");
@@ -190,7 +161,6 @@ namespace gspro_r10
         private void OnShotReceived(Metrics metrics)
         {
             if (InvokeRequired) { BeginInvoke(() => OnShotReceived(metrics)); return; }
-
             var ball = metrics.BallMetrics;
             var club = metrics.ClubMetrics;
             double mph = (ball?.BallSpeed ?? 0) * 2.236936;
@@ -198,11 +168,7 @@ namespace gspro_r10
             double spinAxisDeg = ball?.SpinAxis ?? 0;
             double backSpin = totalSpin * System.Math.Cos(-spinAxisDeg * System.Math.PI / 180.0);
             backSpin = System.Math.Max(0, backSpin);
-
-            var trajectory = CarryCalculator.Calculate(
-                mph,
-                ball?.LaunchAngle ?? 0,
-                backSpin);
+            var trajectory = CarryCalculator.Calculate(mph, ball?.LaunchAngle ?? 0, backSpin);
 
             shotCount++;
             carryLabel.Text = $"{trajectory.CarryYards:0} yd";
@@ -213,19 +179,8 @@ namespace gspro_r10
             launchLabel.Text = $"{ball?.LaunchAngle ?? 0:0.0}°";
             spinLabel.Text = $"{backSpin:0} rpm";
 
-            shots.Rows.Insert(0,
-                shotCount,
-                $"{mph:0.0} mph",
-                $"{trajectory.CarryYards:0} yd",
-                $"{trajectory.ApexYards:0.0} yd",
-                $"{ball?.LaunchAngle ?? 0:0.0}°",
-                $"{ball?.LaunchDirection ?? 0:0.0}°",
-                $"{backSpin:0} rpm",
-                $"{(club?.ClubHeadSpeed ?? 0) * 2.236936:0.0} mph",
-                $"{club?.AttackAngle ?? 0:0.0}°");
-
-            if (shots.Rows.Count > 200)
-                shots.Rows.RemoveAt(shots.Rows.Count - 1);
+            shots.Rows.Insert(0, shotCount, $"{mph:0.0} mph", $"{trajectory.CarryYards:0} yd", $"{trajectory.ApexYards:0.0} yd", $"{ball?.LaunchAngle ?? 0:0.0}°", $"{ball?.LaunchDirection ?? 0:0.0}°", $"{backSpin:0} rpm", $"{(club?.ClubHeadSpeed ?? 0) * 2.236936:0.0} mph", $"{club?.AttackAngle ?? 0:0.0}°");
+            if (shots.Rows.Count > 200) shots.Rows.RemoveAt(shots.Rows.Count - 1);
         }
     }
 }
