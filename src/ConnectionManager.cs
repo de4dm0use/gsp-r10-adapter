@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using gspro_r10.OpenConnect;
 using Microsoft.Extensions.Configuration;
+using LaunchMonitor.Proto;
 
 namespace gspro_r10
 {
@@ -9,14 +10,12 @@ namespace gspro_r10
   {
     private R10ConnectionServer? R10Server;
     private OpenConnectClient OpenConnectClient;
-    private BluetoothConnection? BluetoothConnection { get; }
+    public BluetoothConnection? BluetoothConnection { get; private set; }
     internal HttpPuttingServer? PuttingConnection { get; }
     public event ClubChangedEventHandler? ClubChanged;
+    public event EventHandler<Metrics>? ShotReceived;
     public delegate void ClubChangedEventHandler(object sender, ClubChangedEventArgs e);
-    public class ClubChangedEventArgs: EventArgs
-    {
-      public Club Club { get; set; }
-    }
+    public class ClubChangedEventArgs: EventArgs { public Club Club { get; set; } }
 
     private JsonSerializerOptions serializerSettings = new JsonSerializerOptions()
     {
@@ -38,7 +37,10 @@ namespace gspro_r10
       }
 
       if (bool.Parse(configuration.GetSection("bluetooth")["enabled"] ?? "false"))
+      {
         BluetoothConnection = new BluetoothConnection(this, configuration.GetSection("bluetooth"));
+        BluetoothConnection.ShotReceived += (s, e) => ShotReceived?.Invoke(this, e);
+      }
 
       if (bool.Parse(configuration.GetSection("putting")["enabled"] ?? "false"))
       {
@@ -49,30 +51,16 @@ namespace gspro_r10
 
     internal void SendShot(OpenConnect.BallData? ballData, OpenConnect.ClubData? clubData)
     {
-      string openConnectMessage = JsonSerializer.Serialize(OpenConnectApiMessage.CreateShotData(
-        shotNumber++,
-        ballData,
-        clubData
-      ), serializerSettings);
-
+      string openConnectMessage = JsonSerializer.Serialize(OpenConnectApiMessage.CreateShotData(shotNumber++, ballData, clubData), serializerSettings);
       OpenConnectClient.SendAsync(openConnectMessage);
     }
 
     public void ClubUpdate(Club club)
     {
-      Task.Run(() => {
-        ClubChanged?.Invoke(this, new ClubChangedEventArgs()
-        {
-          Club = club
-        });
-      });
-
+      Task.Run(() => ClubChanged?.Invoke(this, new ClubChangedEventArgs { Club = club }));
     }
 
-    internal void SendLaunchMonitorReadyUpdate(bool deviceReady)
-    {
-      OpenConnectClient.SetDeviceReady(deviceReady);
-    }
+    internal void SendLaunchMonitorReadyUpdate(bool deviceReady) => OpenConnectClient.SetDeviceReady(deviceReady);
 
     protected virtual void Dispose(bool disposing)
     {
@@ -90,10 +78,6 @@ namespace gspro_r10
       }
     }
 
-    public void Dispose()
-    {
-      Dispose(disposing: true);
-      GC.SuppressFinalize(this);
-    }
+    public void Dispose() { Dispose(true); GC.SuppressFinalize(this); }
   }
 }
