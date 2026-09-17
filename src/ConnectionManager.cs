@@ -13,15 +13,11 @@ namespace gspro_r10
     public BluetoothConnection? BluetoothConnection { get; private set; }
     internal HttpPuttingServer? PuttingConnection { get; }
     public event ClubChangedEventHandler? ClubChanged;
-    public event EventHandler<Metrics>? ShotReceived;
+    public event Action<Metrics>? ShotReceived;
     public delegate void ClubChangedEventHandler(object sender, ClubChangedEventArgs e);
     public class ClubChangedEventArgs: EventArgs { public Club Club { get; set; } }
 
-    private JsonSerializerOptions serializerSettings = new JsonSerializerOptions()
-    {
-      DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
-
+    private JsonSerializerOptions serializerSettings = new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
     private int shotNumber = 0;
     private bool disposedValue;
 
@@ -39,7 +35,7 @@ namespace gspro_r10
       if (bool.Parse(configuration.GetSection("bluetooth")["enabled"] ?? "false"))
       {
         BluetoothConnection = new BluetoothConnection(this, configuration.GetSection("bluetooth"));
-        BluetoothConnection.ShotReceived += (s, e) => ShotReceived?.Invoke(this, e);
+        BluetoothConnection.ShotReceived += e => ShotReceived?.Invoke(e);
       }
 
       if (bool.Parse(configuration.GetSection("putting")["enabled"] ?? "false"))
@@ -55,11 +51,7 @@ namespace gspro_r10
       OpenConnectClient.SendAsync(openConnectMessage);
     }
 
-    public void ClubUpdate(Club club)
-    {
-      Task.Run(() => ClubChanged?.Invoke(this, new ClubChangedEventArgs { Club = club }));
-    }
-
+    public void ClubUpdate(Club club) => Task.Run(() => ClubChanged?.Invoke(this, new ClubChangedEventArgs { Club = club }));
     internal void SendLaunchMonitorReadyUpdate(bool deviceReady) => OpenConnectClient.SetDeviceReady(deviceReady);
 
     protected virtual void Dispose(bool disposing)
