@@ -169,7 +169,6 @@ namespace gspro_r10
             double backSpin = totalSpin * System.Math.Cos(-spinAxisDeg * System.Math.PI / 180.0);
             backSpin = System.Math.Max(0, backSpin);
             var trajectory = CarryCalculator.Calculate(mph, ball?.LaunchAngle ?? 0, backSpin);
-
             shotCount++;
             carryLabel.Text = $"{trajectory.CarryYards:0} yd";
             apexLabel.Text = $"{trajectory.ApexYards:0.0} yd";
@@ -178,7 +177,6 @@ namespace gspro_r10
             ballSpeedLabel.Text = $"{mph:0.0} mph";
             launchLabel.Text = $"{ball?.LaunchAngle ?? 0:0.0}°";
             spinLabel.Text = $"{backSpin:0} rpm";
-
             shots.Rows.Insert(0, shotCount, $"{mph:0.0} mph", $"{trajectory.CarryYards:0} yd", $"{trajectory.ApexYards:0.0} yd", $"{ball?.LaunchAngle ?? 0:0.0}°", $"{ball?.LaunchDirection ?? 0:0.0}°", $"{backSpin:0} rpm", $"{(club?.ClubHeadSpeed ?? 0) * 2.236936:0.0} mph", $"{club?.AttackAngle ?? 0:0.0}°");
             if (shots.Rows.Count > 200) shots.Rows.RemoveAt(shots.Rows.Count - 1);
         }
