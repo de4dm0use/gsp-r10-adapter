@@ -18,6 +18,9 @@ namespace gspro_r10
     public int ReconnectInterval { get; }
     public LaunchMonitorDevice? LaunchMonitor { get; private set; }
     public BluetoothDevice? Device { get; private set; }
+    public event EventHandler<Metrics>? ShotReceived;
+    public event EventHandler<int>? BatteryUpdated;
+    public event EventHandler<State.StateType>? StateChanged;
 
     public BluetoothConnection(ConnectionManager connectionManager, IConfigurationSection configuration)
     {
@@ -25,7 +28,6 @@ namespace gspro_r10
       Configuration = configuration;
       ReconnectInterval = int.Parse(configuration["reconnectInterval"] ?? "5");
       Task.Run(ConnectToDevice);
-
     }
 
     private void ConnectToDevice()
@@ -36,7 +38,6 @@ namespace gspro_r10
       {
         BluetoothLogger.Error($"Could not find '{deviceName}' in list of paired devices.");
         BluetoothLogger.Error("Device must be paired through computer bluetooth settings before running");
-        BluetoothLogger.Error("If device is paired, make sure name matches exactly what is set in 'bluetoothDeviceName' in settings.json");
         return;
       }
 
@@ -44,7 +45,6 @@ namespace gspro_r10
       {
         BluetoothLogger.Info($"Connecting to {Device.Name}: {Device.Id}");
         Device.Gatt.ConnectAsync().Wait();
-
         if (!Device.Gatt.IsConnected)
         {
           BluetoothLogger.Info($"Could not connect to bluetooth device. Waiting {ReconnectInterval} seconds before trying again");
@@ -54,8 +54,7 @@ namespace gspro_r10
       while (!Device.Gatt.IsConnected);
 
       Device.Gatt.AutoConnect = true;
-
-      BluetoothLogger.Info($"Connected to Launch Monitor");
+      BluetoothLogger.Info("Connected to Launch Monitor");
       LaunchMonitor = SetupLaunchMonitor(Device);
       Device.GattServerDisconnected += OnDeviceDisconnected;
     }
@@ -63,10 +62,8 @@ namespace gspro_r10
     private void OnDeviceDisconnected(object? sender, EventArgs args)
     {
       BluetoothLogger.Error("Lost bluetooth connection");
-      if (Device != null)
-        Device.GattServerDisconnected -= OnDeviceDisconnected;
+      if (Device != null) Device.GattServerDisconnected -= OnDeviceDisconnected;
       LaunchMonitor?.Dispose();
-
       Task.Run(ConnectToDevice);
     }
 
@@ -75,28 +72,26 @@ namespace gspro_r10
       LaunchMonitorDevice lm = new LaunchMonitorDevice(device);
       lm.AutoWake = bool.Parse(Configuration["autoWake"] ?? "false");
       lm.CalibrateTiltOnConnect = bool.Parse(Configuration["calibrateTiltOnConnect"] ?? "false");
-
       lm.DebugLogging = bool.Parse(Configuration["debugLogging"] ?? "false");
 
       lm.MessageRecieved += (o, e) => BluetoothLogger.Incoming(e.Message?.ToString() ?? string.Empty);
       lm.MessageSent += (o, e) => BluetoothLogger.Outgoing(e.Message?.ToString() ?? string.Empty);
-      lm.BatteryLifeUpdated += (o, e) => BluetoothLogger.Info($"Battery Life Updated: {e.Battery}%");
-      lm.Error += (o, e) => BluetoothLogger.Error($"{e.Severity}: {e.Message}");
-
-      if (bool.Parse(Configuration["sendStatusChangesToGSP"] ?? "false"))
+      lm.BatteryLifeUpdated += (o, e) =>
       {
-        lm.ReadinessChanged += (o, e) =>
-        {
-          ConnectionManager.SendLaunchMonitorReadyUpdate(e.Ready);
-        };
-      }
+        BluetoothLogger.Info($"Battery Life Updated: {e.Battery}%");
+        BatteryUpdated?.Invoke(this, e.Battery);
+      };
+      lm.Error += (o, e) => BluetoothLogger.Error($"{e.Severity}: {e.Message}");
+      lm.ReadinessChanged += (o, e) => StateChanged?.Invoke(this, e.Ready ? State.StateType.Waiting : lm.CurrentState);
 
       lm.ShotMetrics += (o, e) =>
       {
+        if (e.Metrics == null) return;
         LogMetrics(e.Metrics);
+        ShotReceived?.Invoke(this, e.Metrics);
         ConnectionManager.SendShot(
-          BallDataFromLaunchMonitorMetrics(e.Metrics?.BallMetrics),
-          ClubDataFromLaunchMonitorMetrics(e.Metrics?.ClubMetrics)
+          BallDataFromLaunchMonitorMetrics(e.Metrics.BallMetrics),
+          ClubDataFromLaunchMonitorMetrics(e.Metrics.ClubMetrics)
         );
       };
 
@@ -112,25 +107,22 @@ namespace gspro_r10
       float airDensity = float.Parse(Configuration["airDensity"] ?? "1");
       float teeDistanceInFeet = float.Parse(Configuration["teeDistanceInFeet"] ?? "7");
       float teeRange = teeDistanceInFeet * FEET_TO_METERS;
-
       lm.ShotConfig(temperature, humidity, altitude, airDensity, teeRange);
 
-      BluetoothLogger.Info($"Device Setup Complete: ");
+      BluetoothLogger.Info("Device Setup Complete:");
       BluetoothLogger.Info($"   Model: {lm.Model}");
       BluetoothLogger.Info($"   Firmware: {lm.Firmware}");
       BluetoothLogger.Info($"   Bluetooth ID: {lm.Device.Id}");
       BluetoothLogger.Info($"   Battery: {lm.Battery}%");
       BluetoothLogger.Info($"   Current State: {lm.CurrentState}");
       BluetoothLogger.Info($"   Tilt: {lm.DeviceTilt}");
-
       return lm;
     }
 
     private BluetoothDevice? FindDevice(string deviceName)
     {
       foreach (BluetoothDevice pairedDev in Bluetooth.GetPairedDevicesAsync().Result)
-        if (pairedDev.Name == deviceName)
-          return pairedDev;
+        if (pairedDev.Name == deviceName) return pairedDev;
       return null;
     }
 
@@ -162,77 +154,34 @@ namespace gspro_r10
       };
     }
 
+    public void LogMetrics(Metrics? metrics)
+    {
+      if (metrics == null) return;
+      try
+      {
+        StringBuilder sb = new StringBuilder();
+        sb.AppendLine($"===== Shot {metrics.ShotId} =====");
+        sb.AppendLine($"Ball: {metrics.BallMetrics?.BallSpeed * METERS_PER_S_TO_MILES_PER_HOUR:0.0} mph | VLA {metrics.BallMetrics?.LaunchAngle:0.0}° | HLA {metrics.BallMetrics?.LaunchDirection:0.0}° | Spin {metrics.BallMetrics?.TotalSpin:0} rpm");
+        sb.AppendLine($"Club: {metrics.ClubMetrics?.ClubHeadSpeed * METERS_PER_S_TO_MILES_PER_HOUR:0.0} mph | Path {metrics.ClubMetrics?.ClubAnglePath:0.0}° | Face {metrics.ClubMetrics?.ClubAngleFace:0.0}° | AoA {metrics.ClubMetrics?.AttackAngle:0.0}°");
+        BluetoothLogger.Info(sb.ToString());
+      }
+      catch (Exception e) { Console.WriteLine(e); }
+    }
+
     protected virtual void Dispose(bool disposing)
     {
       if (!disposedValue)
       {
         if (disposing)
         {
-          if (Device != null)
-            Device.GattServerDisconnected -= OnDeviceDisconnected;
+          if (Device != null) Device.GattServerDisconnected -= OnDeviceDisconnected;
           LaunchMonitor?.Dispose();
         }
-
         disposedValue = true;
       }
     }
 
-    public void LogMetrics(Metrics? metrics)
-    {
-      if (metrics == null)
-      {
-        return;
-      }
-      try
-      {
-        StringBuilder sb = new StringBuilder();
-        sb.AppendLine($"===== Shot {metrics.ShotId} =====");
-        sb.AppendLine($"{"Ball Metrics",-40}│ {"Club Metrics",-40}│ {"Swing Metrics",-40}");
-        sb.AppendLine($"{new string('─', 40)}┼─{new string('─', 40)}┼─{new string('─', 40)}");
-        sb.Append($" {"BallSpeed:",-15} {metrics.BallMetrics?.BallSpeed * METERS_PER_S_TO_MILES_PER_HOUR,-22} │");
-        sb.Append($" {"Club Speed:",-20} {metrics.ClubMetrics?.ClubHeadSpeed * METERS_PER_S_TO_MILES_PER_HOUR,-18} │");
-        sb.AppendLine($" {"Backswing Start:",-20} {metrics.SwingMetrics?.BackSwingStartTime,-17}");
-
-        sb.Append($" {"VLA:",-15} {metrics.BallMetrics?.LaunchAngle,-22} │");
-        sb.Append($" {"Club Path:",-20} {metrics.ClubMetrics?.ClubAnglePath,-18} │");
-        sb.AppendLine($" {"Downswing Start:",-20} {metrics.SwingMetrics?.DownSwingStartTime,-17}");
-
-        sb.Append($" {"HLA:",-15} {metrics.BallMetrics?.LaunchDirection,-22} │");
-        sb.Append($" {"Club Face:",-20} {metrics.ClubMetrics?.ClubAngleFace,-18} │");
-        sb.AppendLine($" {"Impact time:",-20} {metrics.SwingMetrics?.ImpactTime,-17}");
-
-        uint? backswingDuration = metrics.SwingMetrics?.DownSwingStartTime - metrics.SwingMetrics?.BackSwingStartTime;
-        sb.Append($" {"Spin Axis:",-15} {metrics.BallMetrics?.SpinAxis * -1,-22} │");
-        sb.Append($" {"Attack Angle:",-20} {metrics.ClubMetrics?.AttackAngle,-18} │");
-        sb.AppendLine($" {"Backswing duration:",-20} {backswingDuration,-17}");
-
-        uint? downswingDuration = metrics.SwingMetrics?.ImpactTime - metrics.SwingMetrics?.DownSwingStartTime;
-        sb.Append($" {"Total Spin:",-15} {metrics.BallMetrics?.TotalSpin,-22} │");
-        sb.Append($" {"",-20} {"",-18} │");
-        sb.AppendLine($" {"Downswing duration:",-20} {downswingDuration,-17}");
-
-        sb.Append($" {"Ball Type:",-15} {metrics.BallMetrics?.GolfBallType,-22} │");
-        sb.Append($" {"",-20} {"",-18} │");
-        sb.AppendLine($" {"Tempo:",-20} {(float)(backswingDuration ?? 0) / downswingDuration,-17}");
-
-        sb.Append($" {"Spin Calc:",-15} {metrics.BallMetrics?.SpinCalculationType,-22} │");
-        sb.Append($" {"",-20} {"",-18} │");
-        sb.AppendLine($" {"Normal/Practice:",-20} {metrics.ShotType,-17}");
-        BluetoothLogger.Info(sb.ToString());
-
-      }
-      catch (Exception e)
-      {
-        Console.WriteLine(e);
-      }
-
-    }
-
-    public void Dispose()
-    {
-      Dispose(disposing: true);
-      GC.SuppressFinalize(this);
-    }
+    public void Dispose() { Dispose(true); GC.SuppressFinalize(this); }
   }
 
   public static class BluetoothLogger
