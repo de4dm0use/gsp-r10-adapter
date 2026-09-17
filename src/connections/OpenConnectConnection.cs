@@ -9,7 +9,7 @@ namespace gspro_r10
 {
   class OpenConnectClient : TcpClient
   {
-    public Timer? PingTimer { get; private set; }
+    public System.Threading.Timer? PingTimer { get; private set; }
     public bool InitiallyConnected { get; private set; }
     public ConnectionManager ConnectionManager { get; set; }
     private bool _stop;
@@ -23,6 +23,7 @@ namespace gspro_r10
     public void DisconnectAndStop()
     {
       _stop = true;
+      PingTimer?.Dispose();
       DisconnectAsync();
       while (IsConnected)
         Thread.Yield();
@@ -32,12 +33,13 @@ namespace gspro_r10
     {
       InitiallyConnected = true;
       OpenConnectLogger.LogGSPInfo($"TCP client connected a new session with Id {Id}");
-      PingTimer = new Timer(SendPing, null, 0, 0);
+      PingTimer = new System.Threading.Timer(SendPing, null, 0, 10000);
     }
 
     private void SendPing(object? state)
     {
-      SendAsync(JsonSerializer.Serialize(OpenConnect.OpenConnectApiMessage.CreateHeartbeat()));
+      if (!_stop)
+        SendAsync(JsonSerializer.Serialize(OpenConnect.OpenConnectApiMessage.CreateHeartbeat()));
     }
 
     public void SetDeviceReady(bool deviceReady)
@@ -59,6 +61,7 @@ namespace gspro_r10
 
     protected override void OnDisconnected()
     {
+      PingTimer?.Dispose();
       if (InitiallyConnected)
         OpenConnectLogger.LogGSPError($"TCP client disconnected a session with Id {Id}");
 
