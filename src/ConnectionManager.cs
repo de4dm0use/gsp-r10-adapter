@@ -10,6 +10,7 @@ namespace gspro_r10
   {
     private R10ConnectionServer? R10Server;
     private OpenConnectClient OpenConnectClient;
+    private NovaWebSocketServer? NovaServer;
     public BluetoothConnection? BluetoothConnection { get; private set; }
     internal HttpPuttingServer? PuttingConnection { get; }
     public event ClubChangedEventHandler? ClubChanged;
@@ -32,10 +33,26 @@ namespace gspro_r10
         R10Server.Start();
       }
 
+      var novaConfig = configuration.GetSection("novaWebSocket");
+      if (bool.Parse(novaConfig["enabled"] ?? "true"))
+      {
+        int port = int.Parse(novaConfig["port"] ?? "2920");
+        NovaServer = new NovaWebSocketServer(
+          port,
+          "Garmin Approach R10",
+          () => BluetoothConnection?.LaunchMonitor?.Battery ?? 0
+        );
+        NovaServer.Start();
+      }
+
       if (bool.Parse(configuration.GetSection("bluetooth")["enabled"] ?? "false"))
       {
         BluetoothConnection = new BluetoothConnection(this, configuration.GetSection("bluetooth"));
-        BluetoothConnection.ShotReceived += e => ShotReceived?.Invoke(e);
+        BluetoothConnection.ShotReceived += e =>
+        {
+          ShotReceived?.Invoke(e);
+          NovaServer?.PublishShot(e);
+        };
       }
 
       if (bool.Parse(configuration.GetSection("putting")["enabled"] ?? "false"))
@@ -60,6 +77,7 @@ namespace gspro_r10
       {
         if (disposing)
         {
+          NovaServer?.Dispose();
           R10Server?.Dispose();
           PuttingConnection?.Dispose();
           BluetoothConnection?.Dispose();
