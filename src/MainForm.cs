@@ -13,6 +13,7 @@ namespace gspro_r10
             public int Number { get; init; }
             public TracerShot Tracer { get; init; }
             public string Summary => $"Shot {Number} • {Tracer.CarryYards:0} yd • {Tracer.LaunchAngleDeg:0.0}° launch";
+            public override string ToString() => Summary;
         }
 
         private readonly ConnectionManager manager;
@@ -30,6 +31,7 @@ namespace gspro_r10
         private readonly Button connectButton = new();
 
         private readonly PictureBox cameraPreview = new();
+        private readonly PictureBox puttingPreview = new();
         private readonly ComboBox cameraMode = new();
         private readonly ComboBox shotSelector = new();
         private readonly TextBox videoPath = new();
@@ -278,8 +280,10 @@ namespace gspro_r10
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 70));
             page.Controls.Add(root);
 
-            var view = new PictureBox { Dock = DockStyle.Fill, BackColor = Color.Black, SizeMode = PictureBoxSizeMode.Zoom };
-            root.Controls.Add(view, 0, 0);
+            puttingPreview.Dock = DockStyle.Fill;
+            puttingPreview.BackColor = Color.Black;
+            puttingPreview.SizeMode = PictureBoxSizeMode.Zoom;
+            root.Controls.Add(puttingPreview, 0, 0);
 
             var bar = new FlowLayoutPanel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(18, 29, 44), Padding = new Padding(10) };
             bar.Controls.Add(new Label { Text = "Camera mode:", AutoSize = true, ForeColor = Color.White, Margin = new Padding(5, 9, 5, 0) });
@@ -287,7 +291,7 @@ namespace gspro_r10
             cameraMode.SelectedIndex = 0;
             cameraMode.Width = 180;
             bar.Controls.Add(cameraMode);
-            bar.Controls.Add(Button("START CAMERA", (_, _) => { cameraPreview = view; StartCamera(); }));
+            bar.Controls.Add(Button("START CAMERA", (_, _) => StartCamera()));
             bar.Controls.Add(Button("STOP CAMERA", (_, _) => StopCamera()));
             root.Controls.Add(bar, 0, 1);
             return page;
@@ -682,6 +686,13 @@ namespace gspro_r10
             var old = cameraPreview.Image;
             cameraPreview.Image = bitmap;
             old?.Dispose();
+            if (!puttingPreview.IsDisposed)
+            {
+                var second = BitmapConverter.ToBitmap(frame);
+                var oldSecond = puttingPreview.Image;
+                puttingPreview.Image = second;
+                oldSecond?.Dispose();
+            }
         }
     }
 }
