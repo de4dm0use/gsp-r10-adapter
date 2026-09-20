@@ -13,18 +13,38 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 7.0.x
+
       - name: Restore
         run: dotnet restore gspro-r10.csproj
+
       - name: Build
         run: dotnet build gspro-r10.csproj --configuration Release --no-restore
-      - name: Publish self-contained x64
-        run: dotnet publish gspro-r10.csproj --configuration Release --runtime win-x64 --self-contained true --output publish/win-x64
-      - name: Upload Windows app
+
+      - name: Publish compact Windows build
+        run: |
+          dotnet publish gspro-r10.csproj --configuration Release --runtime win-x64 --self-contained false --output publish/win-x64-small -p:DebugType=None -p:DebugSymbols=false
+          @"
+          R10 Shot Tracker - Compact Windows build
+          ========================================
+
+          This build is framework-dependent to keep the download small.
+          Install the .NET 7 Desktop Runtime (x64) on Windows before running it.
+
+          The application includes the OpenCV native libraries required for
+          camera preview, putting camera mode, video tracer preview and MP4 export.
+          "@ | Out-File -FilePath publish/win-x64-small/README.txt -Encoding utf8
+
+      - name: Create compact ZIP
+        shell: pwsh
+        run: Compress-Archive -Path publish/win-x64-small/* -DestinationPath R10-Shot-Tracker-Windows-x64-Compact.zip -CompressionLevel Optimal
+
+      - name: Upload compact Windows ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: R10-Shot-Tracker-Windows-x64
-          path: publish/win-x64/
+          name: R10-Shot-Tracker-Windows-x64-Compact
+          path: R10-Shot-Tracker-Windows-x64-Compact.zip
