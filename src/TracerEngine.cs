@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using OpenCvSharp;
+using CvPoint = OpenCvSharp.Point;
 
 namespace gspro_r10
 {
@@ -14,9 +15,9 @@ namespace gspro_r10
 
     public static class TracerEngine
     {
-        public static IReadOnlyList<Point> BuildScreenPath(int width, int height, TracerShot shot)
+        public static IReadOnlyList<CvPoint> BuildScreenPath(int width, int height, TracerShot shot)
         {
-            var points = new List<Point>(41);
+            var points = new List<CvPoint>(41);
             double startX = width * 0.18;
             double groundY = height * 0.84;
             double endX = width * (0.78 + Math.Clamp(shot.LaunchDirectionDeg / 45.0, -0.10, 0.10));
@@ -33,7 +34,7 @@ namespace gspro_r10
                 double x = startX + (endX - startX) * t + curve * t * t;
                 double arc = Math.Sin(Math.PI * t);
                 double y = groundY + (apexY - groundY) * arc;
-                points.Add(new Point((int)x, (int)y));
+                points.Add(new CvPoint((int)x, (int)y));
             }
 
             return points;
@@ -60,8 +61,8 @@ namespace gspro_r10
             {
                 var landing = path[^1];
                 Cv2.Circle(frame, landing, 18, new Scalar(255, 185, 25), 2, LineTypes.AntiAlias);
-                Cv2.Line(frame, new Point(landing.X - 12, landing.Y), new Point(landing.X + 12, landing.Y), new Scalar(255, 185, 25), 2, LineTypes.AntiAlias);
-                Cv2.Line(frame, new Point(landing.X, landing.Y - 12), new Point(landing.X, landing.Y + 12), new Scalar(255, 185, 25), 2, LineTypes.AntiAlias);
+                Cv2.Line(frame, new CvPoint(landing.X - 12, landing.Y), new CvPoint(landing.X + 12, landing.Y), new Scalar(255, 185, 25), 2, LineTypes.AntiAlias);
+                Cv2.Line(frame, new CvPoint(landing.X, landing.Y - 12), new CvPoint(landing.X, landing.Y + 12), new Scalar(255, 185, 25), 2, LineTypes.AntiAlias);
             }
         }
 
@@ -69,7 +70,7 @@ namespace gspro_r10
         {
             string line = $"Carry {shot.CarryYards:0} yd   Apex {shot.ApexYards:0.0} yd   Launch {shot.LaunchAngleDeg:0.0}°   Flight {shot.FlightTimeSeconds:0.00}s";
             Cv2.Rectangle(frame, new Rect(18, 18, Math.Min(frame.Width - 36, 700), 42), new Scalar(15, 20, 25), -1);
-            Cv2.PutText(frame, line, new Point(30, 47), HersheyFonts.HersheySimplex, 0.65, new Scalar(245, 245, 245), 2, LineTypes.AntiAlias);
+            Cv2.PutText(frame, line, new CvPoint(30, 47), HersheyFonts.HersheySimplex, 0.65, new Scalar(245, 245, 245), 2, LineTypes.AntiAlias);
         }
     }
 }
