@@ -1,6 +1,8 @@
 using LaunchMonitor.Proto;
 using OpenCvSharp;
 using OpenCvSharp.Extensions;
+using DPoint = System.Drawing.Point;
+using DSize = System.Drawing.Size;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -51,7 +53,7 @@ namespace gspro_r10
             Text = "R10 Golf Tracker";
             Width = 1420;
             Height = 920;
-            MinimumSize = new Size(1100, 760);
+            MinimumSize = new DSize(1100, 760);
             StartPosition = FormStartPosition.CenterScreen;
             BackColor = Color.FromArgb(11, 20, 32);
             ForeColor = Color.White;
@@ -96,24 +98,24 @@ namespace gspro_r10
                 Text = "R10 GOLF TRACKER",
                 AutoSize = true,
                 Font = new Font("Segoe UI", 22, FontStyle.Bold),
-                Location = new Point(0, 2)
+                Location = new DPoint(0, 2)
             };
             connectionLabel.Text = "● Connecting...";
             connectionLabel.AutoSize = true;
             connectionLabel.Font = new Font("Segoe UI", 10, FontStyle.Bold);
             connectionLabel.ForeColor = Color.Gold;
-            connectionLabel.Location = new Point(3, 42);
+            connectionLabel.Location = new DPoint(3, 42);
 
             deviceLabel.Text = "Garmin Approach R10";
             deviceLabel.AutoSize = true;
             deviceLabel.ForeColor = Color.LightGray;
-            deviceLabel.Location = new Point(875, 10);
+            deviceLabel.Location = new DPoint(875, 10);
 
             connectButton.Text = "CONNECT R10";
             connectButton.Font = new Font("Segoe UI", 9, FontStyle.Bold);
-            connectButton.Size = new Size(140, 34);
+            connectButton.Size = new DSize(140, 34);
             connectButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            connectButton.Location = new Point(1245, 30);
+            connectButton.Location = new DPoint(1245, 30);
             connectButton.Click += (_, _) => ConnectR10();
 
             header.Controls.Add(title);
@@ -335,12 +337,12 @@ namespace gspro_r10
         private static void AddCard(TableLayoutPanel parent, int column, string caption, Label value, string initial, int size)
         {
             var panel = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(25, 38, 53), Margin = new Padding(5) };
-            var cap = new Label { Text = caption, AutoSize = true, ForeColor = Color.Silver, Font = new Font("Segoe UI", 9, FontStyle.Bold), Location = new Point(14, 12) };
+            var cap = new Label { Text = caption, AutoSize = true, ForeColor = Color.Silver, Font = new Font("Segoe UI", 9, FontStyle.Bold), Location = new DPoint(14, 12) };
             value.Text = initial;
             value.AutoSize = true;
             value.ForeColor = Color.White;
             value.Font = new Font("Segoe UI", size, FontStyle.Bold);
-            value.Location = new Point(14, 43);
+            value.Location = new DPoint(14, 43);
             panel.Controls.Add(cap);
             panel.Controls.Add(value);
             parent.Controls.Add(panel, column, 0);
@@ -349,12 +351,12 @@ namespace gspro_r10
         private static void AddSmallCard(TableLayoutPanel parent, int column, string caption, Label value, string initial)
         {
             var panel = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(20, 31, 44), Margin = new Padding(5) };
-            var cap = new Label { Text = caption, AutoSize = true, ForeColor = Color.Silver, Font = new Font("Segoe UI", 8, FontStyle.Bold), Location = new Point(12, 9) };
+            var cap = new Label { Text = caption, AutoSize = true, ForeColor = Color.Silver, Font = new Font("Segoe UI", 8, FontStyle.Bold), Location = new DPoint(12, 9) };
             value.Text = initial;
             value.AutoSize = true;
             value.ForeColor = Color.White;
             value.Font = new Font("Segoe UI", 16, FontStyle.Bold);
-            value.Location = new Point(12, 34);
+            value.Location = new DPoint(12, 34);
             panel.Controls.Add(cap);
             panel.Controls.Add(value);
             parent.Controls.Add(panel, column, 0);
@@ -526,7 +528,7 @@ namespace gspro_r10
                 using var capture = new VideoCapture(videoPath.Text);
                 if (!capture.IsOpened()) throw new InvalidOperationException("OpenCV could not open the video.");
                 double fps = capture.Fps > 0 ? capture.Fps : 30;
-                capture.PosMsec = (double)impactTime.Value * 1000;
+                capture.PosMsec = (int)((double)impactTime.Value * 1000);
                 using var frame = new Mat();
                 if (!capture.Read(frame) || frame.Empty()) throw new InvalidOperationException("Could not read the requested video frame.");
 
